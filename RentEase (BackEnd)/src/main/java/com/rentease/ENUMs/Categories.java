@@ -1,0 +1,5 @@
+package com.rentease.ENUMs;
+
+public enum Categories {
+	ELECTRONICS , FURNITURE , SPORTS , TOOLS , MUSICAL_INSTRUMENTS , CLOTHING , OUTDOOR_CAMPING
+}
