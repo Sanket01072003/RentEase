@@ -1,0 +1,5 @@
+package com.rentease.security;
+
+public class LoggingFilter {
+
+}

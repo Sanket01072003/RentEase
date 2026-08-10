@@ -1,0 +1,104 @@
+package com.rentease.services;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import com.rentease.ENUMs.Availability;
+import com.rentease.dtos.ProductDTO;
+import com.rentease.dtos.ResponseDto;
+import com.rentease.entities.Category;
+import com.rentease.entities.Owner;
+import com.rentease.entities.Products;
+import com.rentease.exceptions.CustomException;
+import com.rentease.repositories.CategoryRepository;
+import com.rentease.repositories.OwnerRepository;
+import com.rentease.repositories.ProductRepository;
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class ProductServiceImpl implements ProductService {
+
+	private final ProductRepository productRepository;
+
+	private final OwnerRepository ownerRepository;
+
+	private final CategoryRepository categoryRepository;
+
+	// ── Add Product ───────────────────────────────────────
+	public ResponseDto add(ProductDTO dto) {
+		Owner owner = ownerRepository.findById(dto.getOwnerId())
+				.orElseThrow(() -> new CustomException("Owner not found!"));
+
+		Category category = categoryRepository.findById(dto.getCategoryId())
+				.orElseThrow(() -> new CustomException("Category not found!"));
+
+		Products product = new Products();
+		product.setProductName(dto.getProductName());
+		product.setDescription(dto.getDescription());
+		product.setPricePerDay(dto.getPricePerDay());
+		product.setDepositAmount(dto.getDepositAmount());
+		product.setImageUrl(dto.getImageUrl());
+		product.setOwner(owner);
+		product.setCategory(category);
+		product.setStatus(Availability.AVAILABLE); // default
+		Products saved = productRepository.save(product);
+		return new ResponseDto("Product Added Successfully!" , "Success" , LocalDateTime.now() , saved);
+	}
+
+	// ── Get All ───────────────────────────────────────────
+	public List<Products> getAll() {
+		return productRepository.findAll();
+	}
+
+	// ── Get All Available ─────────────────────────────────
+	public List<Products> getAllAvailable() {
+		return productRepository.findByStatus(Availability.AVAILABLE);
+	}
+
+	// ── Get by ID ─────────────────────────────────────────
+	public Products getById(Long id) {
+		return productRepository.findById(id).orElseThrow(() -> new CustomException("Product not found!"));
+	}
+
+	// ── Get by Category ───────────────────────────────────
+	public List<Products> getByCategory(Long categoryId) {
+		return productRepository.findByCategoryCategoryId(categoryId);
+	}
+
+	// ── Get by Owner ──────────────────────────────────────
+//	public List<Products> getByOwner(Long ownerId) {
+//		return productRepository.findByOwnerOwnerId(ownerId);
+//	}
+	
+	public List<Products> getByOwner(Long ownerId) {
+		return productRepository.findByOwnerId(ownerId);
+	}
+
+	// ── Update ────────────────────────────────────────────
+	public ResponseDto update(Long id, ProductDTO dto) {
+		Products product = getById(id);
+		product.setProductName(dto.getProductName());
+		product.setDescription(dto.getDescription());
+		product.setPricePerDay(dto.getPricePerDay());
+		product.setDepositAmount(dto.getDepositAmount());
+//		product.setImageUrl(dto.getImageUrl());
+		if (dto.getImageUrl() != null) {
+		    product.setImageUrl(dto.getImageUrl());
+		}
+		Products updated = productRepository.save(product);
+		return new ResponseDto("Product Updated Successfully!" , "Success" , LocalDateTime.now() , updated);
+	}
+
+	// ── Delete ────────────────────────────────────────────
+	public ResponseDto delete(Long id) {
+		productRepository.findById(id).orElseThrow(() -> new CustomException("Product Not Found!"));
+		productRepository.deleteById(id);
+		return new ResponseDto("Product deleted successfully!", "Success" , LocalDateTime.now() , null);
+	}
+}

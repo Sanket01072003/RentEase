@@ -3,14 +3,14 @@ package com.rentease.controllers;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.rentease.dtos.PaymentDTO;
+import com.rentease.dtos.VerifyPaymentRequestDto;
 import com.rentease.services.PaymentService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/payments")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
+//@CrossOrigin(origins = "*")
 public class PaymentController {
 
     private final PaymentService paymentService;
@@ -26,7 +26,7 @@ public class PaymentController {
     // Step 2: React calls this after payment success
     @PostMapping("/verify")
     public ResponseEntity<?> verify(
-            @RequestBody PaymentDTO dto) {
+            @RequestBody VerifyPaymentRequestDto dto) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(paymentService.verifyAndSave(dto));
@@ -44,6 +44,6 @@ public class PaymentController {
     public ResponseEntity<?> getById(
             @PathVariable Long id) {
         return ResponseEntity.ok(
-                paymentService.getById(id));
+                paymentService.getByRentalId(id));
     }
 }

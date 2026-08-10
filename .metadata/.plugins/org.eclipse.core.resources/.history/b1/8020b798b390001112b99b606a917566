@@ -1,0 +1,5 @@
+package com.rentease.services;
+
+public class LoggerClientService {
+
+}

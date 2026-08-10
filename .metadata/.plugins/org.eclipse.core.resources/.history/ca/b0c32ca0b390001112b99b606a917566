@@ -1,0 +1,26 @@
+package com.rentease.services;
+
+import com.rentease.dtos.LogDto;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+@Service
+@
+public class LoggerClientService {
+
+    @Value("${logger.service.url}")
+    private String loggerUrl;
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    // Fire-and-forget — doesn't block main API response
+    public void sendLog(LogDto log) {
+        try {
+            restTemplate.postForEntity(loggerUrl + "/api/logs", log, String.class);
+        } catch (Exception e) {
+            // Don't crash main app if logger service is down
+            System.err.println("⚠️ Logger service unreachable: " + e.getMessage());
+        }
+    }
+}

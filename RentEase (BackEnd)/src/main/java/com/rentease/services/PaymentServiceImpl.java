@@ -1,187 +1,77 @@
 package com.rentease.services;
 
-import com.razorpay.Order;
-import com.razorpay.RazorpayClient;
-import com.razorpay.RazorpayException;
-import com.rentease.ENUMs.PaymentStatus;
-import com.rentease.ENUMs.RentalStatus;
-import com.rentease.dtos.PaymentDTO;
-import com.rentease.dtos.PaymentOrderResponse;
-import com.rentease.entities.Payment;
-import com.rentease.entities.Rental;
-import com.rentease.exceptions.CustomException;
-import com.rentease.repositories.PaymentRepository;
-import com.rentease.repositories.RentalRepository;
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import org.json.JSONObject;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.math.BigDecimal;
-import java.util.HexFormat;
+import com.rentease.ENUMs.Availability;
+import com.rentease.ENUMs.RentalStatus;
+import com.rentease.dtos.CreateOrderRequestDto;
+import com.rentease.dtos.PaymentOrderResponse;
+import com.rentease.dtos.RefundRequestDto;
+import com.rentease.dtos.VerifyPaymentRequestDto;
+import com.rentease.entities.Rental;
+import com.rentease.exceptions.CustomException;
+import com.rentease.repositories.ProductRepository;
+import com.rentease.repositories.RentalRepository;
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @Transactional
 @RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService {
 
-    private final PaymentRepository paymentRepository;
+    private final PaymentServiceClient paymentServiceClient;
     private final RentalRepository rentalRepository;
+    private final ProductRepository productRepository;
 
-    @Value("${razorpay.key.id}")
-    private String keyId;
-
-    @Value("${razorpay.key.secret}")
-    private String keySecret;
-
-    // ── Step 1: Create Razorpay Order ─────────────────────
-    // React calls this FIRST
     @Override
     public PaymentOrderResponse createOrder(Long rentalId) {
         Rental rental = rentalRepository.findById(rentalId)
-                .orElseThrow(() ->
-                    new CustomException("Rental not found!"));
+                .orElseThrow(() -> new CustomException("Rental not found!"));
 
-        // Calculate total = rent + deposit
-        double amount = rental.getTotalRent()
-                      + rental.getDepositAmount();
+        CreateOrderRequestDto request = new CreateOrderRequestDto();
+        request.setRentalId(rentalId);
+        request.setTotalRent(rental.getTotalRent());
+        request.setDepositAmount(rental.getDepositAmount());
+        request.setRenterName(rental.getRenter().getName());
+        request.setRenterMail(rental.getRenter().getMail());
 
-        try {
-            // Create Razorpay client
-            RazorpayClient client = new RazorpayClient(
-                    keyId, keySecret);
-
-            // Build order options
-            JSONObject options = new JSONObject();
-            options.put("amount", (int)(amount * 100)); // paise
-            options.put("currency", "INR");
-            options.put("receipt", "rental_" + rentalId);
-
-            // Create order via Razorpay API
-            Order order = client.orders.create(options);
-
-            // Return order details to React
-            return new PaymentOrderResponse(
-                order.get("id"),          // razorpay order id
-                amount,                   // total amount
-                "INR",
-                keyId,                    // key for React checkout
-                rental.getRenter().getName(),
-                rental.getRenter().getMail()
-            );
-
-        } catch (RazorpayException e) {
-            throw new CustomException(
-                "Failed to create Razorpay order: " + e.getMessage());
-        }
+        return paymentServiceClient.createOrder(request);
     }
 
-    // ── Step 2: Verify & Save Payment ─────────────────────
-    // React calls this AFTER Razorpay success
     @Override
-    public Payment verifyAndSave(PaymentDTO dto) {
+    public Object verifyAndSave(VerifyPaymentRequestDto dto) {
+        Object result = paymentServiceClient.verifyPayment(dto);
+
+        // Main backend still owns Rental/Product status transitions —
+        // Payment microservice only confirms the payment succeeded.
         Rental rental = rentalRepository.findById(dto.getRentalId())
-                .orElseThrow(() ->
-                    new CustomException("Rental not found!"));
-
-        // ✅ Verify Razorpay HMAC Signature
-        boolean isValid = verifySignature(
-                dto.getRazorOrderId(),
-                dto.getRazorPaymentId(),
-                dto.getRazorSignature()
-        );
-
-        if (!isValid) {
-            throw new CustomException(
-                "Payment verification failed! Invalid signature.");
-        }
-
-        // Save payment
-        Payment payment = new Payment();
-        payment.setRazorOrderId(dto.getRazorOrderId());
-        payment.setRazorPaymentId(dto.getRazorPaymentId());
-        payment.setTotalAmount(dto.getTotalAmount());
-        payment.setStatus(PaymentStatus.SUCCESS);
-
-        Payment saved = paymentRepository.save(payment);
-
-        // Link payment to rental
-        rental.setPayment(saved);
+                .orElseThrow(() -> new CustomException("Rental not found!"));
         rental.setStatus(RentalStatus.ACTIVE);
         rentalRepository.save(rental);
 
-        return saved;
+        var product = rental.getProduct();
+        product.setStatus(Availability.RENTED);
+        productRepository.save(product);
+
+        return result;
     }
 
-    // ── Step 3: Refund Deposit ────────────────────────────
-    // Called when Owner confirms return
     @Override
-    public Payment refundDeposit(Long rentalId) {
+    public Object refundDeposit(Long rentalId) {
         Rental rental = rentalRepository.findById(rentalId)
-                .orElseThrow(() ->
-                    new CustomException("Rental not found!"));
+                .orElseThrow(() -> new CustomException("Rental not found!"));
 
-        Payment payment = rental.getPayment();
-        if (payment == null) {
-            throw new CustomException("No payment found for this rental!");
-        }
+        RefundRequestDto request = new RefundRequestDto();
+        request.setRentalId(rentalId);
+        request.setDepositAmount(rental.getDepositAmount());
 
-        try {
-            RazorpayClient client = new RazorpayClient(
-                    keyId, keySecret);
-
-            // Refund only deposit amount
-            JSONObject refundOptions = new JSONObject();
-            refundOptions.put(
-                "amount",
-                (int)(rental.getDepositAmount() * 100)); // paise
-
-            // Call Razorpay Refund API
-            com.razorpay.Refund refund = client.payments.refund(
-                    payment.getRazorPaymentId(),
-                    refundOptions);
-
-            // Store refund ID
-            payment.setDepositRefundId(refund.get("id"));
-            payment.setStatus(PaymentStatus.REFUNDED);
-            paymentRepository.save(payment);
-
-            return payment;
-
-        } catch (RazorpayException e) {
-            throw new CustomException(
-                "Refund failed: " + e.getMessage());
-        }
+        return paymentServiceClient.refundDeposit(request);
     }
 
-    // ── Get Payment by ID ─────────────────────────────────
     @Override
-    public Payment getById(Long id) {
-        return paymentRepository.findById(id)
-                .orElseThrow(() ->
-                    new CustomException("Payment not found!"));
-    }
-
-    // ── HMAC Signature Verification ───────────────────────
-    private boolean verifySignature(
-            String orderId,
-            String paymentId,
-            String signature) {
-        try {
-            String data = orderId + "|" + paymentId;
-            Mac mac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec secretKey = new SecretKeySpec(
-                    keySecret.getBytes(), "HmacSHA256");
-            mac.init(secretKey);
-            byte[] hash = mac.doFinal(data.getBytes());
-            String generated = HexFormat.of().formatHex(hash);
-            return generated.equals(signature);
-        } catch (Exception e) {
-            throw new CustomException(
-                "Signature verification error: " + e.getMessage());
-        }
+    public Object getByRentalId(Long rentalId) {
+        return paymentServiceClient.getByRentalId(rentalId);
     }
 }

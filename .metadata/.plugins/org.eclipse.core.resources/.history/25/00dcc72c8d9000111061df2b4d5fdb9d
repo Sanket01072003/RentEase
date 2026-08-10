@@ -1,0 +1,5 @@
+package com.rentease.repositories;
+
+public interface AdminRepository {
+
+}

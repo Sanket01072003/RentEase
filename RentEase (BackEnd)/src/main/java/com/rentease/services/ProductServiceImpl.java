@@ -18,6 +18,8 @@ import com.rentease.repositories.ProductRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @Service
 @Transactional
@@ -87,15 +89,36 @@ public class ProductServiceImpl implements ProductService {
 		product.setDescription(dto.getDescription());
 		product.setPricePerDay(dto.getPricePerDay());
 		product.setDepositAmount(dto.getDepositAmount());
-		product.setImageUrl(dto.getImageUrl());
+//		product.setImageUrl(dto.getImageUrl());
+		if (dto.getImageUrl() != null) {
+		    product.setImageUrl(dto.getImageUrl());
+		}
 		Products updated = productRepository.save(product);
 		return new ResponseDto("Product Updated Successfully!" , "Success" , LocalDateTime.now() , updated);
 	}
 
+//	// ── Delete ────────────────────────────────────────────
+//	public ResponseDto delete(Long id) {
+//		productRepository.findById(id).orElseThrow(() -> new CustomException("Product Not Found!"));
+//		productRepository.deleteById(id);
+//		return new ResponseDto("Product deleted successfully!", "Success" , LocalDateTime.now() , null);
+//	}
+	
 	// ── Delete ────────────────────────────────────────────
 	public ResponseDto delete(Long id) {
-		productRepository.findById(id).orElseThrow(() -> new CustomException("Product Not Found!"));
-		productRepository.deleteById(id);
-		return new ResponseDto("Product deleted successfully!", "Success" , LocalDateTime.now() , null);
+	    Products product = productRepository.findById(id)
+	            .orElseThrow(() -> new CustomException("Product Not Found!"));
+
+	    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+	    String currentMail = auth.getName();   // set as principal in JwtFilter
+	    boolean isAdmin = auth.getAuthorities().stream()
+	            .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+	    if (!isAdmin && !product.getOwner().getMail().equals(currentMail)) {
+	        throw new CustomException("You are not authorized to delete this product!");
+	    }
+
+	    productRepository.deleteById(id);
+	    return new ResponseDto("Product deleted successfully!", "Success", LocalDateTime.now(), null);
 	}
 }

@@ -1,8 +1,11 @@
+
 package com.rentease.security;
 
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -10,6 +13,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSecurity
@@ -17,12 +25,15 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
+    private final LoggingFilter loggingFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http)
             throws Exception {
 
         http
+        	.cors(cors -> cors.configurationSource(
+                corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session
                 .sessionCreationPolicy(
@@ -34,22 +45,35 @@ public class SecurityConfig {
             	        "/owners/register",
             	        "/renters/register",
             	        "/auth/login",
+            	        "/auth/forgot-password",   
+            	        "/auth/reset-password", 
             	        "/products/all",
             	        "/products/available",
             	        "/products/category/**",
-            	        "/products/{id}", //remember to remove this line if required
+//            	        "/products/{id}", //remember to remove this line if required
             	        "/categories/all",
-            	        "/categories/**"
+            	        "/uploads/**"
+//            	        "/categories/**"
             	    ).permitAll()
 
+            	    // ✅ Public — view single category
+            	    .requestMatchers(org.springframework.http.HttpMethod.GET, "/categories/{id:[0-9]+}").permitAll()
+            	    
+            	    // ✅ Admin only
+            	    .requestMatchers(org.springframework.http.HttpMethod.POST, "/categories/add").hasRole("ADMIN")
+            	    .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/categories/{id:[0-9]+}").hasRole("ADMIN")
+            	    
             	    // ✅ Owner only
             	    .requestMatchers(
             	        "/products/add",
             	        "/products/owner/**",
             	        "/rentals/*/return",
-            	        "/owners/**",
-            	        "/categories/add"
+            	        "/owners/**"
+//            	        "/categories/add"
             	    ).hasRole("OWNER")
+            	    
+            	    // ✅ Owner or Admin — delete product (ownership checked in service layer for Owner)
+            	    .requestMatchers(HttpMethod.DELETE, "/products/{id:[0-9]+}").hasAnyRole("OWNER", "ADMIN")
 
             	    // ✅ Renter only
             	    .requestMatchers(
@@ -73,6 +97,8 @@ public class SecurityConfig {
             .addFilterBefore(
                 jwtFilter,
                 UsernamePasswordAuthenticationFilter.class);
+        
+        http.addFilterAfter(loggingFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -80,5 +106,43 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+    
+ // ✅ Global CORS Configuration
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+
+        // ✅ Allow React frontend
+        config.setAllowedOrigins(List.of(
+            "http://localhost:3000",   // React dev server
+            "http://localhost:5173"    // Vite dev server
+        ));
+
+        // ✅ Allow all HTTP methods
+        config.setAllowedMethods(List.of(
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+            "OPTIONS"
+        ));
+
+        // ✅ Allow all headers
+        config.setAllowedHeaders(List.of("*"));
+
+        // ✅ Allow Authorization header (JWT)
+        config.setExposedHeaders(List.of("Authorization"));
+
+        // ✅ Allow credentials
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source =
+            new UrlBasedCorsConfigurationSource();
+
+        // ✅ Apply to all routes
+        source.registerCorsConfiguration("/**", config);
+
+        return source;
     }
 }

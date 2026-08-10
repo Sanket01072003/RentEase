@@ -9,9 +9,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.rentease.dtos.ProductDTO;
+import com.rentease.services.FileStorageService;
 import com.rentease.services.ProductService;
 
 import lombok.RequiredArgsConstructor;
@@ -23,12 +26,39 @@ import lombok.RequiredArgsConstructor;
 public class ProductController {
 
 	private final ProductService productService;
+	private final FileStorageService fileStorageService;
 
-	// POST /api/products/add
-	@PostMapping("/add")
-	public ResponseEntity<?> add(@RequestBody ProductDTO dto) {
-		return ResponseEntity.status(HttpStatus.CREATED).body(productService.add(dto));
-	}
+//	// POST /api/products/add
+//	@PostMapping("/add")
+//	public ResponseEntity<?> add(@RequestBody ProductDTO dto) {
+//		return ResponseEntity.status(HttpStatus.CREATED).body(productService.add(dto));
+//	}
+	
+	// POST /products/add — now multipart
+    @PostMapping(value = "/add", consumes = {"multipart/form-data"})
+    public ResponseEntity<?> add(
+            @RequestParam("productName") String productName,
+            @RequestParam("description") String description,
+            @RequestParam("pricePerDay") double pricePerDay,
+            @RequestParam("depositAmount") double depositAmount,
+            @RequestParam("ownerId") Long ownerId,
+            @RequestParam("categoryId") Long categoryId,
+            @RequestParam(value = "image", required = false) MultipartFile image) {
+
+        ProductDTO dto = new ProductDTO();
+        dto.setProductName(productName);
+        dto.setDescription(description);
+        dto.setPricePerDay(pricePerDay);
+        dto.setDepositAmount(depositAmount);
+        dto.setOwnerId(ownerId);
+        dto.setCategoryId(categoryId);
+
+        if (image != null && !image.isEmpty()) {
+            dto.setImageUrl(fileStorageService.saveImage(image));
+        }
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(productService.add(dto));
+    }
 
 	// GET /api/products/all
 	@GetMapping("/all")
@@ -60,11 +90,37 @@ public class ProductController {
 		return ResponseEntity.ok(productService.getByOwner(ownerId));
 	}
 
-	// PUT /api/products/{id}
-	@PutMapping("/{id}")
-	public ResponseEntity<?> update(@PathVariable Long id, @RequestBody ProductDTO dto) {
-		return ResponseEntity.ok(productService.update(id, dto));
-	}
+//	// PUT /api/products/{id}
+//	@PutMapping("/{id}")
+//	public ResponseEntity<?> update(@PathVariable Long id, @RequestBody ProductDTO dto) {
+//		return ResponseEntity.ok(productService.update(id, dto));
+//	}
+	
+	// PUT /products/{id} — now multipart, image optional
+    @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
+    public ResponseEntity<?> update(
+            @PathVariable Long id,
+            @RequestParam("productName") String productName,
+            @RequestParam("description") String description,
+            @RequestParam("pricePerDay") double pricePerDay,
+            @RequestParam("depositAmount") double depositAmount,
+            @RequestParam("categoryId") Long categoryId,
+            @RequestParam(value = "image", required = false) MultipartFile image) {
+
+        ProductDTO dto = new ProductDTO();
+        dto.setProductName(productName);
+        dto.setDescription(description);
+        dto.setPricePerDay(pricePerDay);
+        dto.setDepositAmount(depositAmount);
+        dto.setCategoryId(categoryId);
+
+        if (image != null && !image.isEmpty()) {
+            dto.setImageUrl(fileStorageService.saveImage(image));
+        }
+        // if no new image, dto.imageUrl stays null — service must not overwrite existing one (see step 6)
+
+        return ResponseEntity.ok(productService.update(id, dto));
+    }
 
 	// DELETE /api/products/{id}
 	@DeleteMapping("/{id}")

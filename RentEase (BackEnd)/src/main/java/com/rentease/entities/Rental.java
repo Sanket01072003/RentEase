@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.rentease.ENUMs.RentalStatus;
 
 import jakarta.persistence.Column;
@@ -48,11 +49,15 @@ public class Rental {
 
     @OneToOne
     @JoinColumn(name = "review_id")
+    @JsonIgnore
     private Review review;        
 
-    @OneToOne
-    @JoinColumn(name = "payment_id")
-    private Payment payment;       
+//    @OneToOne
+//    @JoinColumn(name = "payment_id")
+//    private Payment payment;    
+    
+    @Column(name = "payment_id")
+    private Long paymentId;
 
     @Column(nullable = false, name = "from_date")
     private LocalDate fromDate;

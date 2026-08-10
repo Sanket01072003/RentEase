@@ -1,0 +1,148 @@
+	package com.rentease.services;
+
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import com.rentease.ENUMs.Availability;
+import com.rentease.ENUMs.RentalStatus;
+import com.rentease.dtos.RentalDTO;
+import com.rentease.dtos.ResponseDto;
+import com.rentease.entities.Products;
+import com.rentease.entities.Rental;
+import com.rentease.entities.Renter;
+import com.rentease.exceptions.CustomException;
+import com.rentease.repositories.ProductRepository;
+import com.rentease.repositories.RentalRepository;
+import com.rentease.repositories.RenterRepository;
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class RentalServiceImpl implements RentalService {
+
+	private final RentalRepository rentalRepository;
+	private final RenterRepository renterRepository;
+	private final ProductRepository productRepository;
+	private final PaymentService paymentService;
+	
+	@Override
+	public ResponseDto createRental(RentalDTO rental) {
+		Renter renter = renterRepository.findById(rental.getRenterId()).orElseThrow(() -> new CustomException("Renter Not Found!"));
+		Products product = productRepository.findById(rental.getProductId()).orElseThrow(() -> new CustomException("Product not Found!"));
+		// Check product is available
+        if (product.getStatus() != Availability.AVAILABLE)
+            throw new RuntimeException("Product is not available!");
+
+        // Calculate total rent
+        long days = ChronoUnit.DAYS.between(
+        		rental.getFromDate(), rental.getToDate());
+
+        if (days <= 0)
+            throw new RuntimeException(
+                "To date must be after from date!");
+
+        double totalRent = days * product.getPricePerDay();
+
+        // Create rental
+        Rental r = new Rental();
+        r.setRenter(renter);
+        r.setProduct(product);
+        r.setFromDate(rental.getFromDate());
+        r.setToDate(rental.getToDate());
+        r.setTotalRent(totalRent);
+//        r.setDepositAmount(product.getDepositAmount());
+//        r.setStatus(RentalStatus.ACTIVE);
+//
+//        // Mark product as rented
+//        product.setStatus(Availability.RENTED);
+//        productRepository.save(product);
+//
+//        Rental saved = rentalRepository.save(r);
+        
+        
+        return new ResponseDto("Rental Created Successfully" , "Success" , LocalDateTime.now() , saved);
+
+	}
+
+	@Override
+	public Rental getByid(Long id) {
+		return rentalRepository.findById(id).orElseThrow(() -> new CustomException("Rental Not Found!"));
+	}
+
+//	@Override
+//	public List<Rental> getByRenter(Long renterId) {
+//		return rentalRepository.findByRenterRenterId(renterId);
+//	}
+	
+	@Override
+	public List<Rental> getByRenter(Long renterId) {
+		return rentalRepository.findByRenterId(renterId);
+	}
+
+	@Override
+	public List<Rental> getByProduct(Long productId) {
+		return rentalRepository.findByProductProductId(productId);
+	}
+	
+//	@Override
+//	public List<Rental> getByProduct(Long productId) {
+//		return rentalRepository.findByProductId(productId);
+//	}
+
+	@Override
+	public ResponseDto confirmReturn(Long id) {
+	    Rental rental = rentalRepository.findById(id)
+	            .orElseThrow(() ->
+	                new CustomException("Rental Not Found!"));
+
+	    if (rental.getStatus() != RentalStatus.ACTIVE)
+	        throw new CustomException("Rental is not Active!");
+
+	    rental.setStatus(RentalStatus.RETURNED);
+
+	    Products product = rental.getProduct();
+	    product.setStatus(Availability.AVAILABLE);
+	    productRepository.save(product);
+
+	    rentalRepository.save(rental);
+
+	    // ✅ Trigger deposit refund via Payment Service
+	    paymentService.refundDeposit(id);
+
+	    return new ResponseDto(
+	        "Product Returned & Deposit Refund Initiated!",
+	        "Success",
+	        LocalDateTime.now(),
+	        rental
+	    );
+	}
+
+	@Override
+	public ResponseDto cancel(Long id) {
+		Rental rental = rentalRepository.findById(id).orElseThrow(() -> new CustomException("Rental Not Found!"));
+		
+		if(rental.getStatus() != RentalStatus.ACTIVE) {
+			throw new CustomException("Only Active Rentals can be cancelled!");
+		}
+		
+		//Update Rental Status 
+		rental.setStatus(RentalStatus.CANCELLED);
+		
+		// Make product available again
+		Products product = rental.getProduct();
+		product.setStatus(Availability.AVAILABLE);
+		productRepository.save(product);
+		
+		// Note: Razorpay deposit refund will be added later
+		
+		Rental saved = rentalRepository.save(rental);
+		return new ResponseDto("Rental Cancelled Successfully!" , "Success" , LocalDateTime.now() , saved);
+	}
+	
+}

@@ -1,12 +1,11 @@
 package com.rentease.services;
 
-import com.rentease.dtos.PaymentDTO;
 import com.rentease.dtos.PaymentOrderResponse;
-import com.rentease.entities.Payment;
+import com.rentease.dtos.VerifyPaymentRequestDto;
 
 public interface PaymentService {
     PaymentOrderResponse createOrder(Long rentalId); // ✅ updated
-    Payment verifyAndSave(PaymentDTO dto);
-    Payment refundDeposit(Long rentalId);            // ✅ new
-    Payment getById(Long id);
+    Object verifyAndSave(VerifyPaymentRequestDto dto);
+    Object refundDeposit(Long rentalId);            // ✅ new
+    Object getByRentalId(Long id);
 }

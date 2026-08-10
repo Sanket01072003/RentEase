@@ -1,4 +1,4 @@
-package com.rentease.services;
+	package com.rentease.services;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -56,12 +56,16 @@ public class RentalServiceImpl implements RentalService {
         r.setFromDate(rental.getFromDate());
         r.setToDate(rental.getToDate());
         r.setTotalRent(totalRent);
+//        r.setDepositAmount(product.getDepositAmount());
+//        r.setStatus(RentalStatus.ACTIVE);
+//
+//        // Mark product as rented
+//        product.setStatus(Availability.RENTED);
+//        productRepository.save(product);
+//
+//        Rental saved = rentalRepository.save(r);
         r.setDepositAmount(product.getDepositAmount());
-        r.setStatus(RentalStatus.ACTIVE);
-
-        // Mark product as rented
-        product.setStatus(Availability.RENTED);
-        productRepository.save(product);
+        r.setStatus(RentalStatus.PENDING_PAYMENT);
 
         Rental saved = rentalRepository.save(r);
         
@@ -126,8 +130,12 @@ public class RentalServiceImpl implements RentalService {
 	public ResponseDto cancel(Long id) {
 		Rental rental = rentalRepository.findById(id).orElseThrow(() -> new CustomException("Rental Not Found!"));
 		
-		if(rental.getStatus() != RentalStatus.ACTIVE) {
-			throw new CustomException("Only Active Rentals can be cancelled!");
+//		if(rental.getStatus() != RentalStatus.ACTIVE) {
+//			throw new CustomException("Only Active Rentals can be cancelled!");
+//		}
+		
+		if (rental.getStatus() != RentalStatus.ACTIVE && rental.getStatus() != RentalStatus.PENDING_PAYMENT) {
+		    throw new CustomException("Only Active or Pending rentals can be cancelled!");
 		}
 		
 		//Update Rental Status 

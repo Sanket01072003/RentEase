@@ -1,0 +1,63 @@
+package com.rentease.services;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
+
+import com.rentease.dtos.CreateOrderRequestDto;
+import com.rentease.dtos.PaymentOrderResponse;
+import com.rentease.dtos.RefundRequestDto;
+import com.rentease.dtos.VerifyPaymentRequestDto;
+import com.rentease.exceptions.CustomException;
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class PaymentServiceClient {
+
+    @Value("${payment.service.url}")
+    private String paymentServiceUrl;
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    public PaymentOrderResponse createOrder(CreateOrderRequestDto request) {
+        try {
+            return restTemplate.postForObject(
+                paymentServiceUrl + "/api/payments/create-order",
+                request, PaymentOrderResponse.class);
+        } catch (HttpClientErrorException e) {
+            throw new CustomException("Payment service: " + e.getResponseBodyAsString());
+        } catch (Exception e) {
+            throw new CustomException("Payment service unreachable: " + e.getMessage());
+        }
+    }
+
+    public Object verifyPayment(VerifyPaymentRequestDto request) {
+        try {
+            return restTemplate.postForObject(
+                paymentServiceUrl + "/api/payments/verify",
+                request, Object.class);
+        } catch (HttpClientErrorException e) {
+            throw new CustomException("Payment verification failed: " + e.getResponseBodyAsString());
+        }
+    }
+
+    public Object refundDeposit(RefundRequestDto request) {
+        try {
+            return restTemplate.postForObject(
+                paymentServiceUrl + "/api/payments/refund",
+                request, Object.class);
+        } catch (HttpClientErrorException e) {
+            throw new CustomException("Refund failed: " + e.getResponseBodyAsString());
+        }
+    }
+
+    public Object getByRentalId(Long rentalId) {
+        return restTemplate.getForObject(
+            paymentServiceUrl + "/api/payments/rental/" + rentalId, Object.class);
+    }
+}

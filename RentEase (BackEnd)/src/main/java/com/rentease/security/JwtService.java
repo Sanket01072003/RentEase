@@ -13,62 +13,56 @@ import java.util.Date;
 @Component
 public class JwtService {
 
-    @Value("${jwt.secret}")
-    private String secret;
+	@Value("${jwt.secret}")
+	private String secret;
 
-    @Value("${jwt.expiration}")
-    private long expiration;
+	@Value("${jwt.expiration}")
+	private long expiration;
 
-    // Generate key from secret
-    private Key getKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes());
-    }
+	// Generate key from secret
+	private Key getKey() {
+		return Keys.hmacShaKeyFor(secret.getBytes());
+	}
 
-    // Generate token
-    public String generateToken(String mail, String role) {
-        return Jwts.builder()
-                .setSubject(mail)
-                .claim("role", role)
-                .setIssuedAt(new Date())
-                .setExpiration(
-                    new Date(System.currentTimeMillis() + expiration))
-                .signWith(getKey(), SignatureAlgorithm.HS256)
-                .compact();
-    }
+	// Generate token
+	public String generateToken(String mail, String role, Long id) {
+		return Jwts.builder().setSubject(mail).claim("role", role).claim("id", id).setIssuedAt(new Date())
+				.setExpiration(new Date(System.currentTimeMillis() + expiration))
+				.signWith(getKey(), SignatureAlgorithm.HS256).compact();
+	}
 
-    // Extract mail from token
-    public String extractMail(String token) {
-        return getClaims(token).getSubject();
-    }
+	// Extract id from token
+	public Long extractId(String token) { // ✅ added
+		return getClaims(token).get("id", Long.class);
+	}
 
-    // Extract role from token
-    public String extractRole(String token) {
-        return getClaims(token).get("role", String.class);
-    }
+	// Extract mail from token
+	public String extractMail(String token) {
+		return getClaims(token).getSubject();
+	}
 
-    // Check token expired
-    public boolean isTokenExpired(String token) {
-        return getClaims(token)
-                .getExpiration()
-                .before(new Date());
-    }
+	// Extract role from token
+	public String extractRole(String token) {
+		return getClaims(token).get("role", String.class);
+	}
 
-    // Validate token
-    public boolean validateToken(String token) {
-        try {
-            getClaims(token);
-            return !isTokenExpired(token);
-        } catch (Exception e) {
-            return false;
-        }
-    }
+	// Check token expired
+	public boolean isTokenExpired(String token) {
+		return getClaims(token).getExpiration().before(new Date());
+	}
 
-    // Get all claims
-    private Claims getClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-    }
+	// Validate token
+	public boolean validateToken(String token) {
+		try {
+			getClaims(token);
+			return !isTokenExpired(token);
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	// Get all claims
+	private Claims getClaims(String token) {
+		return Jwts.parserBuilder().setSigningKey(getKey()).build().parseClaimsJws(token).getBody();
+	}
 }

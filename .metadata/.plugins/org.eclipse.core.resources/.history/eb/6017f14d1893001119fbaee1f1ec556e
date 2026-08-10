@@ -1,0 +1,76 @@
+package com.rentease.services;
+
+import org.springframework.stereotype.Service;
+
+import com.rentease.ENUMs.Availability;
+import com.rentease.ENUMs.RentalStatus;
+import com.rentease.dtos.CreateOrderRequestDto;
+import com.rentease.dtos.PaymentOrderResponse;
+import com.rentease.dtos.RefundRequestDto;
+import com.rentease.entities.Rental;
+import com.rentease.exceptions.CustomException;
+import com.rentease.repositories.ProductRepository;
+import com.rentease.repositories.RentalRepository;
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class PaymentServiceImpl implements PaymentService {
+
+    private final PaymentServiceClient paymentServiceClient;
+    private final RentalRepository rentalRepository;
+    private final ProductRepository productRepository;
+
+    @Override
+    public PaymentOrderResponse createOrder(Long rentalId) {
+        Rental rental = rentalRepository.findById(rentalId)
+                .orElseThrow(() -> new CustomException("Rental not found!"));
+
+        CreateOrderRequestDto request = new CreateOrderRequestDto();
+        request.setRentalId(rentalId);
+        request.setTotalRent(rental.getTotalRent());
+        request.setDepositAmount(rental.getDepositAmount());
+        request.setRenterName(rental.getRenter().getName());
+        request.setRenterMail(rental.getRenter().getMail());
+
+        return paymentServiceClient.createOrder(request);
+    }
+
+    @Override
+    public Object verifyAndSave(PaymentDTO dto) {
+        Object result = paymentServiceClient.verifyPayment(dto);
+
+        // Main backend still owns Rental/Product status transitions —
+        // Payment microservice only confirms the payment succeeded.
+        Rental rental = rentalRepository.findById(dto.getRentalId())
+                .orElseThrow(() -> new CustomException("Rental not found!"));
+        rental.setStatus(RentalStatus.ACTIVE);
+        rentalRepository.save(rental);
+
+        var product = rental.getProduct();
+        product.setStatus(Availability.RENTED);
+        productRepository.save(product);
+
+        return result;
+    }
+
+    @Override
+    public Object refundDeposit(Long rentalId) {
+        Rental rental = rentalRepository.findById(rentalId)
+                .orElseThrow(() -> new CustomException("Rental not found!"));
+
+        RefundRequestDto request = new RefundRequestDto();
+        request.setRentalId(rentalId);
+        request.setDepositAmount(rental.getDepositAmount());
+
+        return paymentServiceClient.refundDeposit(request);
+    }
+
+    @Override
+    public Object getByRentalId(Long rentalId) {
+        return paymentServiceClient.getByRentalId(rentalId);
+    }
+}

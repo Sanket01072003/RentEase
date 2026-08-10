@@ -1,0 +1,43 @@
+2026-08-05 23:48:51 [INF] Executed DbCommand (7ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE DATABASE `RentEaseLogger`;
+2026-08-05 23:48:51 [INF] Executed DbCommand (6ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+ALTER DATABASE CHARACTER SET utf8mb4;
+2026-08-05 23:48:51 [INF] Executed DbCommand (20ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE `ApiLogs` (
+    `Id` int NOT NULL AUTO_INCREMENT,
+    `Service` varchar(100) CHARACTER SET utf8mb4 NOT NULL,
+    `Method` varchar(10) CHARACTER SET utf8mb4 NOT NULL,
+    `Endpoint` varchar(500) CHARACTER SET utf8mb4 NOT NULL,
+    `StatusCode` int NOT NULL,
+    `UserMail` varchar(200) CHARACTER SET utf8mb4 NULL,
+    `UserRole` varchar(50) CHARACTER SET utf8mb4 NULL,
+    `RequestBody` varchar(2000) CHARACTER SET utf8mb4 NULL,
+    `ResponseMessage` varchar(1000) CHARACTER SET utf8mb4 NULL,
+    `DurationMs` bigint NOT NULL,
+    `Level` varchar(20) CHARACTER SET utf8mb4 NOT NULL,
+    `Timestamp` datetime(6) NOT NULL,
+    CONSTRAINT `PK_ApiLogs` PRIMARY KEY (`Id`)
+) CHARACTER SET=utf8mb4;
+2026-08-05 23:48:51 [INF] 🚀 RentEase Logger Microservice started on port 5000
+2026-08-05 23:48:51 [INF] Now listening on: http://localhost:5000
+2026-08-05 23:48:51 [INF] Application started. Press Ctrl+C to shut down.
+2026-08-05 23:48:51 [INF] Hosting environment: Development
+2026-08-05 23:48:51 [INF] Content root path: C:\Users\Sanket\Downloads\Rentease\RentEaseLogger
+2026-08-05 23:49:20 [INF] Request starting HTTP/1.1 GET http://localhost:5000/ - null null
+2026-08-05 23:49:20 [INF] Request finished HTTP/1.1 GET http://localhost:5000/ - 301 0 null 127.1612ms
+2026-08-05 23:49:20 [INF] Request starting HTTP/1.1 GET http://localhost:5000/index.html - null null
+2026-08-05 23:49:20 [INF] Request finished HTTP/1.1 GET http://localhost:5000/index.html - 200 null text/html;charset=utf-8 99.0274ms
+2026-08-05 23:49:20 [INF] Request starting HTTP/1.1 GET http://localhost:5000/swagger-ui.css - null null
+2026-08-05 23:49:20 [INF] Request starting HTTP/1.1 GET http://localhost:5000/swagger-ui-bundle.js - null null
+2026-08-05 23:49:20 [INF] Request starting HTTP/1.1 GET http://localhost:5000/swagger-ui-standalone-preset.js - null null
+2026-08-05 23:49:20 [INF] Sending file. Request path: '/swagger-ui-bundle.js'. Physical path: 'N/A'
+2026-08-05 23:49:20 [INF] Sending file. Request path: '/swagger-ui-standalone-preset.js'. Physical path: 'N/A'
+2026-08-05 23:49:20 [INF] Sending file. Request path: '/swagger-ui.css'. Physical path: 'N/A'
+2026-08-05 23:49:20 [INF] Request finished HTTP/1.1 GET http://localhost:5000/swagger-ui-standalone-preset.js - 200 312163 text/javascript 36.7978ms
+2026-08-05 23:49:20 [INF] Request finished HTTP/1.1 GET http://localhost:5000/swagger-ui-bundle.js - 200 1061536 text/javascript 37.2058ms
+2026-08-05 23:49:20 [INF] Request finished HTTP/1.1 GET http://localhost:5000/swagger-ui.css - 200 144929 text/css 38.3095ms
+2026-08-05 23:49:21 [INF] Request starting HTTP/1.1 GET http://localhost:5000/swagger/v1/swagger.json - null null
+2026-08-05 23:49:21 [INF] Request starting HTTP/1.1 GET http://localhost:5000/favicon-32x32.png - null null
+2026-08-05 23:49:21 [INF] Sending file. Request path: '/favicon-32x32.png'. Physical path: 'N/A'
+2026-08-05 23:49:21 [INF] Request finished HTTP/1.1 GET http://localhost:5000/favicon-32x32.png - 200 628 image/png 8.4518ms
+2026-08-05 23:49:21 [INF] Request finished HTTP/1.1 GET http://localhost:5000/swagger/v1/swagger.json - 200 null application/json;charset=utf-8 125.0449ms
